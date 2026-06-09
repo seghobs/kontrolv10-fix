@@ -1,24 +1,46 @@
 # Kontrol V10 FIX (Premium Coffee Automation & Analysis)
 
-Kontrol V10 FIX, yepyeni **Coffee / Espresso** tasarım diliyle (Karamel, Mocha ve Cream vurguları) yeniden inşa edilmiş, üst düzey bir Instagram Otomasyon, Yorum/Beğeni Kontrol ve Token Yönetim platformudur. Orijinal Instagram mobil uygulamasının (Android) API başlıklarını ve session yönetimini birebir taklit ederek çalışan, son derece kararlı, güvenli ve sinematik estetiğe sahip bir sistemdir.
+Kontrol V10 FIX, yepyeni **Coffee / Espresso** tasarım diliyle (Karamel, Mocha ve Cream vurguları) yeniden inşa edilmiş, üst düzey bir Instagram Otomasyon, Yorum/Beğeni Kontrol, Token Yönetimi ve Zamanlanmış Arka Plan Otomasyon platformudur. Orijinal Instagram mobil uygulamasının (Android) API başlıklarını, cihaz kimliklerini ve session yönetimini birebir taklit ederek çalışan, son derece kararlı, güvenli ve sinematik estetiğe sahip bir sistemdir.
 
 ## 🚀 Proje Ne İşe Yarıyor?
-Bu proje, **Instagram yardımlaşma ve etkileşim gruplarını** profesyonel bir düzeyde yönetmek için tasarlanmıştır. Üyelerin görevlerini (beğeni/yorum) yapıp yapmadıklarını saniyeler içinde tespit eder.
-
-*   **Toplu Beğeni ve Yorum Denetimi:** Birden fazla gönderiyi aynı anda tarar, kimin eksik olduğunu detaylı raporlar.
-*   **Kopya Yorum Tespiti:** "Toplu Kontrol" modunda, kullanıcıların farklı postlara aynı (kopyala-yapıştır) yorumu atıp atmadığını otomatik belirler ve uyarır.
-*   **Favori Gruplar:** Sık kullandığınız Instagram gruplarını favoriye ekleyerek listenin en üstünde tutabilirsiniz.
-*   **Premium UI/UX (Coffee Theme):** Özel renk paleti, cam dokulu (glassmorphism) bileşenler ve sinematik bulanıklık (blur) geçişleriyle donatılmış lüks bir arayüz.
-*   **DM Grubu Entegrasyonu:** Bağlı hesapların bulunduğu grupları otomatik tespit eder, üye listelerini ve paylaşılan postları anında çeker.
+Bu proje, **Instagram yardımlaşma ve etkileşim gruplarını** profesyonel, güvenli ve otomatik bir düzeyde yönetmek için tasarlanmıştır. Üyelerin görevlerini (beğeni/yorum) yapıp yapmadıklarını saniyeler içinde tespit eder ve raporlar.
 
 ---
 
-## ✨ Yeni Nesil Özellikler (v10 FIX)
--   **Coffee / Espresso Design:** Saf, şık kahve tonları (`--accent-caramel`, `--accent-mocha`) kullanılarak baştan aşağı yenilenen premium bir deneyim.
--   **Sinematik Animasyonlar:** Sayfalar arası geçişlerde ve "Kontrol Et" bekleme anlarında devreye giren 1.5 saniyelik harika bulanıklık (blur) ve fade-in efektleriyle gerçek bir SPA hissi.
--   **Zarif Etkileşimler:** Grup ve paylaşım seçimi yapıldığında ekranda oluşan göz yormayan, kısa süreli bulanıklık efektleri. UI içi gereksiz zıplamalar tamamen temizlendi.
--   **Kopya Yorum Analizi:** Toplu kontrollerde aynı metni kullanan "spam" davranışlarını anında yakalar.
--   **Failover Mekanizması:** Instagram'ın `429` (Rate Limit) veya `403` hatalarını akıllıca yönetir, sadece gerçek oturum kayıplarında token'ı pasife alır.
+## ✨ Tüm Özellikler (v10 FIX)
+
+### 📊 Ana Denetim Özellikleri
+*   **Toplu Beğeni ve Yorum Denetimi:** Birden fazla gönderiyi aynı anda tarar, kimin eksik olduğunu detaylı raporlar.
+*   **Kopya Yorum Tespiti:** "Toplu Kontrol" modunda, kullanıcıların farklı postlara aynı (kopyala-yapıştır) yorumu atıp atmadığını otomatik belirler ve uyarır.
+*   **DM Grubu Entegrasyonu:** Bağlı hesapların bulunduğu grupları otomatik tespit eder, üye listelerini ve paylaşılan postları anında çeker.
+*   **Favori Gruplar:** Sık kullandığınız Instagram gruplarını favoriye ekleyerek listenin en üstünde tutabilirsiniz.
+*   **Gelişmiş Muafiyet Yönetimi:** 
+    *   **Post Bazlı Muafiyet:** Belirli gönderilerde bazı üyeleri geçici olarak denetim dışı bırakabilirsiniz.
+    *   **Global Muafiyet:** Yönetici, moderatör veya VIP üyeleri kalıcı muafiyet listesine ekleyerek tüm kontrollerden muaf tutabilirsiniz.
+
+### 🤖 Gelişmiş Arka Plan Otomasyonu (Auto-Pilot)
+*   **Zamanlanmış Otomatik Kontroller:** Günün belirlenen saatlerinde (örneğin 23:59) otomatik olarak dünün paylaşımlarını denetler.
+*   **Otomatik Grup Bildirimi:** Eksik listesini ve önceden hazırlanan etiket şablonunu otomatik olarak DM grubuna gönderir.
+*   **Eksiklere Bireysel DM:** Görevini yapmayan kullanıcılara otomatik olarak tek tek uyarı DM'si gönderir.
+*   **Yönetici Raporu:** İşlem tamamlandığında yönetici hesabına detaylı başarı/eksik durum raporunu otomatik olarak iletir.
+*   **Canlı Test Modu (Live Test):** Mesaj göndermeksizin otomasyonun nasıl çalışacağını test etmek için canlı simülasyon başlatabilirsiniz.
+
+### 🔑 Token ve Cihaz Yönetimi
+*   **Çoklu Hesap Desteği (Token Pool):** Sisteme birden fazla Instagram hesabı ekleyebilir ve bunları havuz olarak kullanabilirsiniz.
+*   **Akıllı Yeniden Giriş (Auto-Relogin):** Oturumu düşen veya şifresiyle yeniden girilmesi gereken hesapları tek tıkla admin panelinden güncelleyebilirsiniz.
+*   **Toplu İçe/Dışa Aktarma:** Hesaplarınızı JSON veya CSV formatında toplu olarak sisteme yükleyebilir ya da yedekleyebilirsiniz.
+*   **Cihaz Simülasyonu:** Her hesap için benzersiz Android Cihaz Kimliği (Android ID), Device ID ve User Agent tanımlayarak Instagram radarına takılmayı önler.
+
+### 🛡️ Güvenlik ve Kararlılık
+*   **Doğrulama Destekli Failover Mekanizması:** Sorgular sırasında `403` veya `401` hatası alındığında, token'ın gerçekten ölü olup olmadığını test eder. Gerçekten ölü değilse (özel post/geçici limit durumu) hesabı kapatmaz ve diğer yedek hesaba geçerek sorguyu tamamlar.
+*   **Geri Alma (Unsend) Desteği:** Botun DM grubuna attığı eksik listesi mesajlarını tek tıklamayla Instagram sunucularından geri alabilir/silebilirsiniz.
+*   **İşlem Günlüğü (Audit Logs):** Sistemde manuel veya otomatik yapılan tüm kontrolleri, relogin işlemlerini saniye saniye takip edebilirsiniz.
+
+### 🎨 Premium UI/UX (Coffee Theme)
+*   **Coffee / Espresso Design:** Saf, şık kahve tonları (`--accent-caramel`, `--accent-mocha`) kullanılarak baştan aşağı yenilenen lüks bir deneyim.
+*   **Sinematik Animasyonlar:** Sayfalar arası geçişlerde ve "Kontrol Et" bekleme anlarında devreye giren 1.5 saniyelik harika bulanıklık (blur) ve fade-in efektleriyle gerçek bir SPA hissi.
+*   **Zarif Etkileşimler:** Grup ve paylaşım seçimi yapıldığında ekranda oluşan göz yormayan, kısa süreli bulanıklık efektleri.
+*   **Tasarım Ayarları:** Sıvı cam (Liquid Glass) efekti ve Swipe Navigasyonu gibi özellikleri admin panelinden açıp kapatabilirsiniz.
 
 ---
 
@@ -47,7 +69,7 @@ Sunucu veya lokal makinede projeyi başlattıktan sonra:
 http://localhost:5000
 ```
 
-**Admin Paneli (Token & Muafiyetler):**
+**Admin Paneli (Token, Otomasyon & Muafiyetler):**
 ```text
 http://localhost:5000/admin
 ```
@@ -56,12 +78,13 @@ http://localhost:5000/admin
 
 ## 📁 Proje Yapısı
 -   `flask_app.py`: Uygulamanın giriş noktası.
--   `app_core/`: Sistemin mantıksal çekirdeği (Routes, API, Storage).
--   `static/css/`: Coffee/Karamel tabanlı modernize edilmiş, kusursuz UI stil dosyaları.
--   `static/js/`: Dinamik arama, sinematik geçişler, sürükle-bırak (SortableJS) ve favorileme mantığı.
+-   `log_in.py`: Instagram Bloks giriş taklit motoru.
+-   `app_core/`: Sistemin mantıksal çekirdeği (Routes, API, Storage, Automation).
+-   `static/css/`: Coffee/Karamel tabanlı modernize edilmiş UI stil dosyaları.
+-   `static/js/`: Dinamik arama, sinematik geçişler, sürükle-bırak ve favorileme mantığı.
 -   `templates/`: Animasyonla yüklenen, akıcı Jinja2 HTML şablonları.
 
 ---
 
 ## 🔒 Güvenlik Notu
-Bu proje eğitim ve analiz amaçlıdır. Instagram kullanım koşullarına uygun şekilde kullanılması kullanıcının sorumluluğundadır. Verileriniz (Tokenlar, muafiyetler) yerel bir SQLite veritabanında (`app.db`) şifrelenmiş veya güvenli şekilde saklanır.
+Bu proje eğitim ve analiz amaçlıdır. Instagram kullanım koşullarına uygun şekilde kullanılması kullanıcının sorumluluğundadır. Verileriniz yerel bir SQLite veritabanında (`app.db`) güvenli şekilde saklanır.
