@@ -114,9 +114,15 @@ def fetch_comments_with_failover(media_id, progress_callback=None, token_record=
 
         status_code = result.get("status")
         if status_code in [401, 403]:
-            tokens = load_tokens()
-            deactivate_token(tokens, current_username, "Token gecersiz veya cikis yapildi (Auth Hatasi)")
-            save_tokens(tokens)
+            # Token'in gercekten gecersiz olup olmadigini dogrula
+            from app_core.instagram_api import validate_token
+            is_really_dead = not validate_token(token_record)
+            if is_really_dead:
+                tokens = load_tokens()
+                deactivate_token(tokens, current_username, "Token gecersiz veya cikis yapildi (Auth Hatasi)")
+                save_tokens(tokens)
+            else:
+                logger.warning("Token (@%s) aslinda aktif ama post gizli veya yorum listesi engellendi. Pasife alinmadi.", current_username)
         else:
             logger.warning("Post veya API hatasi (%s). Token yanmadi, ancak islem sonlandiriliyor.", status_code)
             break
@@ -163,9 +169,15 @@ def fetch_likers_with_failover(media_id, progress_callback=None, token_record=No
 
         status_code = result.get("status")
         if status_code in [401, 403]:
-            tokens = load_tokens()
-            deactivate_token(tokens, current_username, "Token gecersiz veya cikis yapildi (Auth Hatasi)")
-            save_tokens(tokens)
+            # Token'in gercekten gecersiz olup olmadigini dogrula
+            from app_core.instagram_api import validate_token
+            is_really_dead = not validate_token(token_record)
+            if is_really_dead:
+                tokens = load_tokens()
+                deactivate_token(tokens, current_username, "Token gecersiz veya cikis yapildi (Auth Hatasi)")
+                save_tokens(tokens)
+            else:
+                logger.warning("Token (@%s) aslinda aktif ama post gizli veya begeni listesi engellendi. Pasife alinmadi.", current_username)
         else:
             logger.warning("Post veya API hatasi (%s). Token yanmadi, ancak islem sonlandiriliyor.", status_code)
             break
