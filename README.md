@@ -1,6 +1,6 @@
-# Kontrol V6 VIP (Premium Coffee Automation & Analysis)
+# Kontrol V10 FIX (Premium Coffee Automation & Analysis)
 
-Kontrol V6 VIP, yepyeni **Coffee / Espresso** tasarım diliyle (Karamel, Mocha ve Cream vurguları) yeniden inşa edilmiş, üst düzey bir Instagram Otomasyon, Yorum/Beğeni Kontrol ve Token Yönetim platformudur. Orijinal Instagram mobil uygulamasının (Android) API başlıklarını ve session yönetimini birebir taklit ederek çalışan, son derece kararlı, güvenli ve sinematik estetiğe sahip bir sistemdir.
+Kontrol V10 FIX, yepyeni **Coffee / Espresso** tasarım diliyle (Karamel, Mocha ve Cream vurguları) yeniden inşa edilmiş, üst düzey bir Instagram Otomasyon, Yorum/Beğeni Kontrol ve Token Yönetim platformudur. Orijinal Instagram mobil uygulamasının (Android) API başlıklarını ve session yönetimini birebir taklit ederek çalışan, son derece kararlı, güvenli ve sinematik estetiğe sahip bir sistemdir.
 
 ## 🚀 Proje Ne İşe Yarıyor?
 Bu proje, **Instagram yardımlaşma ve etkileşim gruplarını** profesyonel bir düzeyde yönetmek için tasarlanmıştır. Üyelerin görevlerini (beğeni/yorum) yapıp yapmadıklarını saniyeler içinde tespit eder.
@@ -13,7 +13,7 @@ Bu proje, **Instagram yardımlaşma ve etkileşim gruplarını** profesyonel bir
 
 ---
 
-## ✨ Yeni Nesil Özellikler (v6 VIP)
+## ✨ Yeni Nesil Özellikler (v10 FIX)
 -   **Coffee / Espresso Design:** Saf, şık kahve tonları (`--accent-caramel`, `--accent-mocha`) kullanılarak baştan aşağı yenilenen premium bir deneyim.
 -   **Sinematik Animasyonlar:** Sayfalar arası geçişlerde ve "Kontrol Et" bekleme anlarında devreye giren 1.5 saniyelik harika bulanıklık (blur) ve fade-in efektleriyle gerçek bir SPA hissi.
 -   **Zarif Etkileşimler:** Grup ve paylaşım seçimi yapıldığında ekranda oluşan göz yormayan, kısa süreli bulanıklık efektleri. UI içi gereksiz zıplamalar tamamen temizlendi.
