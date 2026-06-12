@@ -3,6 +3,44 @@ let pendingUsername = null;
 let pendingButton = null;
 let pendingPostLink = null;
 
+function slideDown(el) {
+    if (!el) return;
+    el.classList.remove("collapsed");
+    el.style.maxHeight = "0px";
+    el.style.opacity = "0";
+    void el.offsetHeight; // force reflow
+    el.style.maxHeight = el.scrollHeight + "px";
+    el.style.opacity = "1";
+    
+    const onTransitionEnd = (e) => {
+        if (e.propertyName === "max-height") {
+            el.style.maxHeight = "none";
+            el.style.opacity = "";
+            el.removeEventListener("transitionend", onTransitionEnd);
+        }
+    };
+    el.addEventListener("transitionend", onTransitionEnd);
+}
+
+function slideUp(el) {
+    if (!el) return;
+    el.style.maxHeight = el.scrollHeight + "px";
+    el.style.opacity = "1";
+    void el.offsetHeight; // force reflow
+    el.style.maxHeight = "0px";
+    el.style.opacity = "0";
+    
+    const onTransitionEnd = (e) => {
+        if (e.propertyName === "max-height") {
+            el.classList.add("collapsed");
+            el.style.maxHeight = "";
+            el.style.opacity = "";
+            el.removeEventListener("transitionend", onTransitionEnd);
+        }
+    };
+    el.addEventListener("transitionend", onTransitionEnd);
+}
+
 function updateEksiklerCount(index) {
     const list = document.getElementById(`eksiklerListesi-${index}`);
     const badge = document.getElementById(`elemanSayisi-${index}`);
@@ -59,9 +97,13 @@ function confirmExemption() {
     button.disabled = true;
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Kaydediliyor...';
 
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     fetch("/add_exemption", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken
+        },
         body: JSON.stringify({ post_link: postLink, username }),
     })
         .then((response) => response.json())
@@ -194,17 +236,23 @@ window.filterEksiklerList = filterEksiklerList;
 window.filterCompletedList = filterCompletedList;
 window.toggleCompletedSection = toggleCompletedSection;
 window.toggleEksiklerSection = toggleEksiklerSection;
+window.toggleDetayliRapor = toggleDetayliRapor;
+window.toggleUserMissingPosts = toggleUserMissingPosts;
 window.copyLink = copyLink;
 window.refreshResults = refreshResults;
+window.copyUserMissingPosts = copyUserMissingPosts;
+window.copyToClipboard = copyToClipboard;
 
 function toggleCompletedSection() {
     const section = document.getElementById("completedSection");
     const icon = document.getElementById("completedSectionIcon");
-    if (section.style.display === "none") {
-        section.style.display = "block";
+    if (!section || !icon) return;
+    const isCollapsed = section.classList.contains("collapsed");
+    if (isCollapsed) {
+        slideDown(section);
         icon.style.transform = "rotate(180deg)";
     } else {
-        section.style.display = "none";
+        slideUp(section);
         icon.style.transform = "rotate(0deg)";
     }
 }
@@ -212,11 +260,41 @@ function toggleCompletedSection() {
 function toggleEksiklerSection(index) {
     const section = document.getElementById(`eksiklerSection-${index}`);
     const icon = document.getElementById(`eksiklerIcon-${index}`);
-    if (section.style.display === "none") {
-        section.style.display = "block";
+    if (!section || !icon) return;
+    const isCollapsed = section.classList.contains("collapsed");
+    if (isCollapsed) {
+        slideDown(section);
         icon.style.transform = "rotate(180deg)";
     } else {
-        section.style.display = "none";
+        slideUp(section);
+        icon.style.transform = "rotate(0deg)";
+    }
+}
+
+function toggleDetayliRapor() {
+    const body = document.getElementById("detayliRaporContent");
+    const icon = document.getElementById("detayliRaporIcon");
+    if (!body || !icon) return;
+    const isCollapsed = body.classList.contains("collapsed");
+    if (isCollapsed) {
+        slideDown(body);
+        icon.style.transform = "rotate(180deg)";
+    } else {
+        slideUp(body);
+        icon.style.transform = "rotate(0deg)";
+    }
+}
+
+function toggleUserMissingPosts(username, idx) {
+    const body = document.getElementById("missing-posts-" + username);
+    const icon = document.getElementById("user-icon-" + idx);
+    if (!body || !icon) return;
+    const isCollapsed = body.classList.contains("collapsed");
+    if (isCollapsed) {
+        slideDown(body);
+        icon.style.transform = "rotate(180deg)";
+    } else {
+        slideUp(body);
         icon.style.transform = "rotate(0deg)";
     }
 }

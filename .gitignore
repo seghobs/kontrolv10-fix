@@ -9,3 +9,5 @@ automations.json
 *.log
 data/*
 !data/.gitkeep
+secret.key
+

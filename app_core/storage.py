@@ -40,7 +40,8 @@ def _init_db(conn):
             added_at TEXT DEFAULT '',
             logout_reason TEXT DEFAULT '',
             logout_time TEXT DEFAULT '',
-            deleted_at TEXT DEFAULT ''
+            deleted_at TEXT DEFAULT '',
+            relogin_attempts INTEGER DEFAULT 0
         )
         """
     )
@@ -85,6 +86,11 @@ def _init_db(conn):
 
     try:
         conn.execute("ALTER TABLE tokens ADD COLUMN deleted_at TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE tokens ADD COLUMN relogin_attempts INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
 
@@ -174,8 +180,8 @@ def upsert_token(token, conn=None):
             """
             INSERT INTO tokens (
                 username, full_name, password, token, android_id_yeni, user_agent,
-                device_id, is_active, added_at, logout_reason, logout_time, deleted_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                device_id, is_active, added_at, logout_reason, logout_time, deleted_at, relogin_attempts
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(username) DO UPDATE SET
                 full_name=excluded.full_name,
                 password=excluded.password,
@@ -187,7 +193,8 @@ def upsert_token(token, conn=None):
                 added_at=excluded.added_at,
                 logout_reason=excluded.logout_reason,
                 logout_time=excluded.logout_time,
-                deleted_at=excluded.deleted_at
+                deleted_at=excluded.deleted_at,
+                relogin_attempts=excluded.relogin_attempts
             """,
             (
                 token.get("username", ""),
@@ -202,6 +209,7 @@ def upsert_token(token, conn=None):
                 token.get("logout_reason", ""),
                 token.get("logout_time", ""),
                 token.get("deleted_at", ""),
+                token.get("relogin_attempts", 0),
             ),
         )
         if own_conn:

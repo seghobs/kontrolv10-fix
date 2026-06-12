@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+from flask_wtf.csrf import CSRFProtect
 
 from app_core.config import get_config
 from app_core.routes.admin import admin_bp
@@ -10,6 +11,10 @@ def create_app():
     config = get_config()
     app = Flask(__name__, template_folder="../templates", static_folder="../static")
     app.config.from_object(config)
+
+    # CSRF Koruması
+    csrf = CSRFProtect()
+    csrf.init_app(app)
 
     # Static dosyalar icin sunucu tarafli cache tamamen kapali
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0

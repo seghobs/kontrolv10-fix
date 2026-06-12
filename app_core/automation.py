@@ -425,6 +425,27 @@ def run_automation_for_thread(thread_id, test_mode=False):
     logger.info("Otomasyon tamamlandi: %s", thread_id)
 
 
+def _acquire_db_lock(thread_id, run_date, run_time):
+    from app_core.storage import _connect
+    import sqlite3
+    conn = _connect()
+    try:
+        lock_key = f"auto_lock_{thread_id}_{run_date}_{run_time}"
+        conn.execute(
+            "INSERT INTO key_value (key, value) VALUES (?, '1')",
+            (lock_key,)
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    except Exception as e:
+        logger.error("Otomasyon kilit alma hatası: %s", e)
+        return False
+    finally:
+        conn.close()
+
+
 def _automation_worker():
     """Arka planda çalışan zamanlayıcı. 30s'de bir saati kontrol eder."""
     last_run_date = {}  # thread_id -> "YYYY-MM-DD"
@@ -451,16 +472,23 @@ def _automation_worker():
                 if current_time in target_times:
                     run_key = f"{thread_id}_{current_time}"
                     if last_run_date.get(run_key) != current_date:
-                        last_run_date[run_key] = current_date
-                        logger.info(
-                            "Otomasyon tetiklendi: thread=%s saat=%s", thread_id, current_time
-                        )
-                        t = threading.Thread(
-                            target=run_automation_for_thread,
-                            args=(thread_id,),
-                            daemon=True,
-                        )
-                        t.start()
+                        # SQLite tabanlı dağıtık kilit kontrolü
+                        if _acquire_db_lock(thread_id, current_date, current_time):
+                            last_run_date[run_key] = current_date
+                            logger.info(
+                                "Otomasyon tetiklendi (Kilit Alindi): thread=%s saat=%s", thread_id, current_time
+                            )
+                            t = threading.Thread(
+                                target=run_automation_for_thread,
+                                args=(thread_id,),
+                                daemon=True,
+                            )
+                            t.start()
+                        else:
+                            last_run_date[run_key] = current_date
+                            logger.debug(
+                                "Otomasyon kilidi baska bir worker tarafından kapıldı: thread=%s saat=%s", thread_id, current_time
+                            )
         except Exception as e:
             logger.error("Otomasyon worker hatasi: %s", e)
 

@@ -156,6 +156,7 @@ def add_token():
             "device_id": data["device_id"],
             "is_active": data.get("is_active", True),
             "added_at": data.get("added_at", str(datetime.now())),
+            "relogin_attempts": 0,
         }
 
         replaced = False
@@ -264,15 +265,29 @@ def update_token():
         if not is_valid_device_id(data["device_id"]):
             return api_response(False, "INVALID_DEVICE_ID", "Gecersiz Device ID formati")
 
+        # Yeni token'la sorgu yapmadan önce mevcut oturumu sıfırlıyoruz ki eski çerezlerle karışmasın
+        try:
+            from app_core.instagram_api import clear_http_session
+            clear_http_session(data["username"])
+        except Exception:
+            pass
+        try:
+            from app_core.session_state import clear_session
+            clear_session(data["username"])
+        except Exception:
+            pass
+
         validate_response = fetch_current_user(
             token=data["token"],
             user_agent=data["user_agent"],
             android_id=data["android_id"],
             device_id=data["device_id"],
+            username=data["username"],
             timeout=5,
         )
         if validate_response.status_code != 200:
             return api_response(False, "INVALID_TOKEN", "Yeni token gecersiz")
+
 
         tokens = load_tokens()
         for token in tokens:
@@ -283,6 +298,7 @@ def update_token():
                 token["device_id"] = data["device_id"]
                 token["password"] = data["password"]
                 token["is_active"] = True
+                token["relogin_attempts"] = 0
                 clear_logout_state(token)
                 save_tokens(tokens)
                 add_audit_log("token", data["username"], "token_guncellendi")

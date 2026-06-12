@@ -35,6 +35,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -99,7 +100,6 @@ body::after {
     padding: 48px;
     width: 100%;
     max-width: 520px;
-    z-index: 3000;
 }
 
 /* Full 4-sided warm accent border */
@@ -394,7 +394,7 @@ textarea.form-control {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 3000;
+    z-index: 20000;
     opacity: 0;
     visibility: hidden;
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -643,7 +643,7 @@ textarea.form-control {
     border: 1px solid var(--border);
     border-radius: 14px;
     box-shadow: var(--shadow-premium);
-    z-index: 9999;
+    z-index: 10050;
     
     /* Animation properties */
     opacity: 0;
@@ -863,7 +863,7 @@ textarea.form-control {
     height: 100%;
     background: rgba(16, 12, 10, 0.85); /* Coffee-tinted overlay */
     backdrop-filter: blur(8px);
-    z-index: 3000;
+    z-index: 20000;
     align-items: center;
     justify-content: center;
     padding: 20px;
@@ -1015,7 +1015,7 @@ textarea.form-control {
     border-radius: 12px;
     font-weight: 500;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    z-index: 9999;
+    z-index: 20000;
     display: flex;
     align-items: center;
     transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);

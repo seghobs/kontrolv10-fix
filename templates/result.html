@@ -16,6 +16,29 @@
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/result.css') }}?v={{ range(1, 99999) | random }}">
     <meta id="design-settings-meta" content="{{ design_settings | tojson | forceescape }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script>
+        const originalFetch = window.fetch;
+        window.fetch = function(input, init) {
+            if (init && init.method && init.method.toUpperCase() === 'POST') {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) {
+                    const csrfToken = meta.getAttribute('content');
+                    init.headers = init.headers || {};
+                    if (init.headers instanceof Headers) {
+                        init.headers.set('X-CSRFToken', csrfToken);
+                    } else if (Array.isArray(init.headers)) {
+                        const idx = init.headers.findIndex(([k]) => k.toLowerCase() === 'x-csrftoken');
+                        if (idx !== -1) init.headers[idx][1] = csrfToken;
+                        else init.headers.push(['X-CSRFToken', csrfToken]);
+                    } else {
+                        init.headers['X-CSRFToken'] = csrfToken;
+                    }
+                }
+            }
+            return originalFetch(input, init);
+        };
+    </script>
 </head>
 <body {% if rate_limited %}data-rate-limited="true"{% endif %}>
     {% if rate_limited %}
@@ -36,13 +59,13 @@
                     <div id="sortable-cards-container">
                     {% if all_commented and all_commented|length > 0 %}
                     <div class="mb-4 sortable-main-card">
-                        <div class="completed-section-header shadow-sm" onclick="toggleCompletedSection()">
+                        <div class="completed-section-header" onclick="toggleCompletedSection()">
                             <div class="d-flex justify-content-between align-items-center w-100">
                                 <i class="fas fa-grip-vertical me-3 drag-handle" title="Tut ve Sürükle" onclick="event.stopPropagation()"></i>
                                 <div class="header-text-container">
                                     <div class="d-flex align-items-center flex-wrap gap-2">
                                         <strong class="header-title-main">
-                                            <i class="fas fa-user-check me-1" style="color: var(--success-color);"></i>Tamamlayan Kullanıcılar
+                                            <i class="fas fa-user-check me-1" style="color: var(--success-color);"></i>{% if check_likes %}Beğenenler{% else %}Yorum Yazanlar{% endif %}
                                         </strong>
                                         <span class="badge badge-success-outline">
                                             {{ all_commented|length }} kişi
@@ -54,7 +77,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="completedSection" style="display: none; margin-top: 15px;">
+                        <div id="completedSection" class="result-section-content collapsed">
                             <div class="search-container mb-3">
                                 <i class="fas fa-search search-icon"></i>
                                 <input type="text" id="completedSearchInput" placeholder="Kullanıcı adı ara..." 
@@ -85,14 +108,14 @@
                     {% endif %}
 
                     {% for item in links %}
-                    <div class="mb-4 link-card shadow-sm sortable-main-card">
+                    <div class="mb-4 sortable-main-card">
                         <div class="eksikler-section-header" data-index="{{ loop.index }}" onclick="toggleEksiklerSection(this.dataset.index)">
                             <div class="d-flex justify-content-between align-items-center w-100">
                                 <i class="fas fa-grip-vertical me-3 drag-handle" title="Tut ve Sürükle" onclick="event.stopPropagation()"></i>
                                 <div class="header-text-container">
                                         <div class="d-flex align-items-center flex-wrap gap-2">
                                             <strong class="header-title-main">
-                                                <i class="fas fa-user-minus me-1" style="color: var(--danger-color);"></i>{% if check_likes %}Beğenmeyenler{% else %}Eksikler (Yorum Atmayanlar){% endif %}
+                                                <i class="fas fa-user-minus me-1" style="color: var(--danger-color);"></i>{% if check_likes %}Beğenmeyenler{% else %}Eksikler{% endif %}
                                             </strong>
                                             <span id="elemanSayisi-{{ loop.index }}" class="badge badge-danger-outline"></span>
                                         </div>
@@ -120,7 +143,7 @@
                                 </div>
                             </div>
 
-                            <div id="eksiklerSection-{{ loop.index }}" style="display: none; margin-top: 15px;">
+                            <div id="eksiklerSection-{{ loop.index }}" class="result-section-content collapsed">
                                 <div class="search-container mb-3">
                                     <i class="fas fa-search search-icon"></i>
                                     <input type="text" placeholder="Bu link icin kullanıcı ara..." 
@@ -140,8 +163,8 @@
                                             <i class="fas fa-grip-vertical drag-handle-inner me-2" style="color: var(--muted-foreground); cursor: grab;"></i>
                                             <i class="fas fa-user me-2"></i><strong>{{ eksik }}</strong>
                                         </span>
-                                        <button class="btn btn-exemption" data-user="{{ eksik }}" data-link="{{ item.post_link }}" onclick="window.addExemption(this.dataset.user, this.dataset.link, this)">
-                                            <i class="fas fa-check me-1"></i>İzinli Say
+                                        <button class="btn btn-exemption" data-user="{{ eksik }}" data-link="{{ item.post_link }}" onclick="window.addExemption(this.dataset.user, this.dataset.link, this)" title="İzinli Say">
+                                            <i class="fas fa-check"></i>
                                         </button>
                                     </li>
                                     {% endfor %}
@@ -150,15 +173,15 @@
                         </div>
                         {% endfor %}
                     
-                    {% if user_missing_posts %}
-                    <div class="mb-4 shadow-sm sortable-main-card detayli-rapor-card">
-                        <div class="p-4" style="cursor: pointer;" onclick="var content = document.getElementById('detayliRaporContent'); var icon = document.getElementById('detayliRaporIcon'); if(content.style.display === 'none'){ content.style.display = 'block'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }">
+                    {% if user_missing_posts and links|length > 1 %}
+                    <div class="mb-4 sortable-main-card">
+                        <div class="detayli-rapor-header" onclick="window.toggleDetayliRapor()">
                             <div class="d-flex justify-content-between align-items-center w-100">
                                 <i class="fas fa-grip-vertical me-3 drag-handle" title="Tut ve Sürükle" onclick="event.stopPropagation()"></i>
                                 <div class="header-text-container">
                                     <div class="d-flex align-items-center flex-wrap gap-2">
                                         <strong style="color: var(--foreground); font-size: 18px; letter-spacing: 0.3px; line-height: 1.4; word-break: break-word;">
-                                            <i class="fas fa-user-times me-2" style="color: var(--danger-color);"></i>Eksik Kullanıcı Detaylı Rapor
+                                            <i class="fas fa-user-times me-2" style="color: var(--danger-color);"></i>Detaylı Rapor
                                         </strong>
                                         <span class="badge badge-danger-outline">
                                             {{ user_missing_posts|length }} eksik kullanıcı
@@ -173,10 +196,10 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="detayliRaporContent" class="p-4 pt-1" style="display: none;">
+                        <div id="detayliRaporContent" class="result-section-content collapsed">
                         {% for username, posts in user_missing_posts.items() %}
                         <div class="user-detail-card">
-                            <div class="p-4" style="cursor: pointer;" data-user="{{ username }}" data-idx="{{ loop.index }}" onclick="var content = document.getElementById('missing-posts-' + this.dataset.user); var icon = document.getElementById('user-icon-' + this.dataset.idx); if(content.style.display === 'none'){ content.style.display = 'flex'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }">
+                             <div class="p-4" style="cursor: pointer;" onclick="window.toggleUserMissingPosts('{{ username }}', '{{ loop.index }}')">
                                 <div class="d-flex justify-content-between align-items-center w-100 pb-3 user-detail-header">
                                     <div class="header-text-container">
                                         <div class="d-flex align-items-center flex-wrap gap-2">
@@ -200,7 +223,7 @@
                                     </div>
                                 </div>
                                 
-                                <div id="missing-posts-{{ username }}" class="row g-2 mt-3" style="display: none;">
+                                <div id="missing-posts-{{ username }}" class="row g-2 mt-3 collapsed">
                                     {% for post in posts %}
                                     <div class="col-12">
                                         <div class="post-link-item">
@@ -245,7 +268,7 @@
                 Onay Gerekli
             </div>
             <div class="modal-body">
-                <span class="modal-username" id="modalUsername"></span> kullanıcısını izinli sayacaksınız. Emin misiniz?
+                <span class="modal-username" id="modalUsername"></span> kullanıcısına izin vermek istediğinize emin misiniz?
             </div>
             <div class="modal-buttons">
                 <button class="modal-btn modal-btn-cancel" onclick="closeModal()">

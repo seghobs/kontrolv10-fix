@@ -14,6 +14,18 @@ _last_validation_times = {}
 
 
 def deactivate_token(tokens, username, reason):
+    try:
+        from app_core.instagram_api import clear_http_session
+        clear_http_session(username)
+    except Exception as e:
+        logger.warning("deactivate_token: HTTP session silinemedi: %s", e)
+
+    try:
+        from app_core.session_state import clear_session
+        clear_session(username)
+    except Exception as e:
+        logger.warning("deactivate_token: DB session silinemedi: %s", e)
+
     for token in tokens:
         if token.get("username") == username:
             token["is_active"] = False
@@ -24,9 +36,67 @@ def deactivate_token(tokens, username, reason):
     return False
 
 
+
 def clear_logout_state(token):
     token.pop("logout_reason", None)
     token.pop("logout_time", None)
+
+
+def handle_invalid_token(username, reason):
+    tokens = load_tokens()
+    target = next((item for item in tokens if item.get("username") == username), None)
+    if not target:
+        logger.warning("Self-healing: @%s bulunamadi.", username)
+        return False
+
+    # Eğer token zaten pasifse otomatik giriş denemesi yapılmamalı
+    if not target.get("is_active", False):
+        logger.info("Self-healing: @%s zaten pasif durumda, otomatik giris denemesi atlaniyor.", username)
+        return False
+
+    attempts = target.get("relogin_attempts", 0) or 0
+    if attempts >= 3:
+        target["is_active"] = False
+        target["logout_reason"] = "3 kere login yapmayı denendi fakat hesaba giriş başarısız oldu. Manuel hesabın durumunu kontrol edin."
+        target["logout_time"] = str(datetime.now())
+        save_tokens(tokens)
+        logger.warning("Self-healing: @%s zaten 3 kere basarisiz giris denemesi yapmis. Deneme iptal ediliyor.", username)
+        return False
+
+    attempts += 1
+    target["relogin_attempts"] = attempts
+    save_tokens(tokens)
+
+    stored_password = str(target.get("password", "")).strip()
+    if not stored_password:
+        logger.warning("Self-healing: @%s sifresi veritabaninda saklanmadigi icin otomatik yenilenemedi.", username)
+        target["is_active"] = False
+        target["logout_reason"] = f"{reason} (Şifre bulunamadığı için otomatik giriş yapılamadı)"
+        target["logout_time"] = str(datetime.now())
+        save_tokens(tokens)
+        return False
+
+    logger.info("Self-healing: @%s otomatik giris denemesi yapiliyor (%d/3)...", username, attempts)
+    res = relogin_saved_user(username)
+    if res.get("ok"):
+        tokens = load_tokens()
+        target = next((item for item in tokens if item.get("username") == username), None)
+        if target:
+            target["relogin_attempts"] = 0
+            save_tokens(tokens)
+        logger.info("Self-healing: @%s otomatik giris basarili.", username)
+        return True
+    else:
+        logger.warning("Self-healing: @%s otomatik giris denemesi basarisiz: %s", username, res.get("message", ""))
+        if attempts >= 3:
+            tokens = load_tokens()
+            target = next((item for item in tokens if item.get("username") == username), None)
+            if target:
+                target["is_active"] = False
+                target["logout_reason"] = "3 kere login yapmayı denendi fakat hesaba giriş başarısız oldu. Manuel hesabın durumunu kontrol edin."
+                target["logout_time"] = str(datetime.now())
+                save_tokens(tokens)
+        return False
 
 
 def get_working_active_token(excluded_usernames=None, skip_validation=False):
@@ -67,10 +137,15 @@ def get_working_active_token(excluded_usernames=None, skip_validation=False):
                 from app_core.instagram_api import validate_token
                 is_valid = validate_token(token_record)
                 if not is_valid:
-                    # Token expired/invalid - mark as inactive
-                    logger.info("Token expired/invalid: @%s", username)
-                    deactivate_token(tokens, username, "Token sure doldu veya gecersiz")
-                    save_tokens(tokens)
+                    logger.info("Token expired/invalid: @%s. Self-healing baslatiliyor...", username)
+                    healed = handle_invalid_token(username, "Token sure doldu veya gecersiz")
+                    if healed:
+                        refreshed_tokens = load_tokens()
+                        refreshed_record = next((t for t in refreshed_tokens if t.get("username") == username), None)
+                        if refreshed_record and refreshed_record.get("is_active", False):
+                            _last_validation_times[username] = datetime.now().timestamp()
+                            return refreshed_record
+                    
                     excluded_usernames.add(username)
                     continue
                 _last_validation_times[username] = current_time
@@ -113,14 +188,21 @@ def fetch_comments_with_failover(media_id, progress_callback=None, token_record=
             return {"rate_limited": True, "comments": comments_data}
 
         status_code = result.get("status")
-        if status_code in [401, 403]:
+        if status_code in [400, 401, 403]:
             # Token'in gercekten gecersiz olup olmadigini dogrula
             from app_core.instagram_api import validate_token
             is_really_dead = not validate_token(token_record)
             if is_really_dead:
-                tokens = load_tokens()
-                deactivate_token(tokens, current_username, "Token gecersiz veya cikis yapildi (Auth Hatasi)")
-                save_tokens(tokens)
+                logger.info("Token (@%s) Auth Hatası aldı. Self-healing baslatiliyor...", current_username)
+                healed = handle_invalid_token(current_username, "Token gecersiz veya cikis yapildi (Auth Hatasi)")
+                if healed:
+                    refreshed_tokens = load_tokens()
+                    refreshed_record = next((t for t in refreshed_tokens if t.get("username") == current_username), None)
+                    if refreshed_record and refreshed_record.get("is_active", False):
+                        token_record = refreshed_record
+                        _last_validation_times[current_username] = datetime.now().timestamp()
+                        retry_count += 1
+                        continue
             else:
                 logger.warning("Token (@%s) aslinda aktif ama post gizli veya yorum listesi engellendi. Pasife alinmadi.", current_username)
         else:
@@ -168,14 +250,21 @@ def fetch_likers_with_failover(media_id, progress_callback=None, token_record=No
             return {"rate_limited": True, "usernames": usernames}
 
         status_code = result.get("status")
-        if status_code in [401, 403]:
+        if status_code in [400, 401, 403]:
             # Token'in gercekten gecersiz olup olmadigini dogrula
             from app_core.instagram_api import validate_token
             is_really_dead = not validate_token(token_record)
             if is_really_dead:
-                tokens = load_tokens()
-                deactivate_token(tokens, current_username, "Token gecersiz veya cikis yapildi (Auth Hatasi)")
-                save_tokens(tokens)
+                logger.info("Token (@%s) Auth Hatası aldı. Self-healing baslatiliyor...", current_username)
+                healed = handle_invalid_token(current_username, "Token gecersiz veya cikis yapildi (Auth Hatasi)")
+                if healed:
+                    refreshed_tokens = load_tokens()
+                    refreshed_record = next((t for t in refreshed_tokens if t.get("username") == current_username), None)
+                    if refreshed_record and refreshed_record.get("is_active", False):
+                        token_record = refreshed_record
+                        _last_validation_times[current_username] = datetime.now().timestamp()
+                        retry_count += 1
+                        continue
             else:
                 logger.warning("Token (@%s) aslinda aktif ama post gizli veya begeni listesi engellendi. Pasife alinmadi.", current_username)
         else:
@@ -191,9 +280,9 @@ def fetch_likers_with_failover(media_id, progress_callback=None, token_record=No
     return usernames
 
 
-def resolve_current_user(token, user_agent, android_id, device_id):
+def resolve_current_user(token, user_agent, android_id, device_id, username=None):
     try:
-        response = fetch_current_user(token, user_agent, android_id, device_id, timeout=5)
+        response = fetch_current_user(token, user_agent, android_id, device_id, username=username, timeout=5)
         if response.status_code != 200:
             return None
         return response.json().get("user", {})
@@ -203,6 +292,18 @@ def resolve_current_user(token, user_agent, android_id, device_id):
 
 
 def upsert_login_token(username, password, token, android_id, user_agent, device_id):
+    try:
+        from app_core.instagram_api import clear_http_session
+        clear_http_session(username)
+    except Exception as e:
+        logger.warning("upsert_login_token: HTTP session silinemedi: %s", e)
+
+    try:
+        from app_core.session_state import clear_session
+        clear_session(username)
+    except Exception as e:
+        logger.warning("upsert_login_token: DB session silinemedi: %s", e)
+
     tokens = load_tokens()
     existing = next((item for item in tokens if item.get("username") == username), None)
 
@@ -218,9 +319,10 @@ def upsert_login_token(username, password, token, android_id, user_agent, device
         existing["user_agent"] = user_agent
         existing["device_id"] = device_id
         existing["is_active"] = True
+        existing["relogin_attempts"] = 0
         clear_logout_state(existing)
     else:
-        user_data = resolve_current_user(token, user_agent, android_id, device_id) or {}
+        user_data = resolve_current_user(token, user_agent, android_id, device_id, username=username) or {}
         tokens.append(
             {
                 "username": username,
@@ -232,6 +334,7 @@ def upsert_login_token(username, password, token, android_id, user_agent, device
                 "device_id": device_id,
                 "is_active": True,
                 "added_at": str(datetime.now()),
+                "relogin_attempts": 0,
             }
         )
 
@@ -239,7 +342,20 @@ def upsert_login_token(username, password, token, android_id, user_agent, device
     logger.info("Token kaydedildi: @%s (eski tokenler pasif yapildi)", username)
 
 
+
 def relogin_saved_user(username, password_override=None, device_id_override=None, user_agent_override=None, android_id_override=None):
+    try:
+        from app_core.instagram_api import clear_http_session
+        clear_http_session(username)
+    except Exception as e:
+        logger.warning("relogin_saved_user: HTTP session silinemedi: %s", e)
+
+    try:
+        from app_core.session_state import clear_session
+        clear_session(username)
+    except Exception as e:
+        logger.warning("relogin_saved_user: DB session silinemedi: %s", e)
+
     tokens = load_tokens()
     target = next((item for item in tokens if item.get("username") == username), None)
     if not target:
@@ -249,6 +365,7 @@ def relogin_saved_user(username, password_override=None, device_id_override=None
     stored_android = str(target.get("android_id_yeni", "")).strip()
     stored_user_agent = str(target.get("user_agent", "")).strip()
     stored_device_id = str(target.get("device_id", "")).strip()
+
 
     password = (password_override or "").strip() or stored_password
     android_id = (android_id_override or "").strip() or stored_android
@@ -296,8 +413,144 @@ def relogin_saved_user(username, password_override=None, device_id_override=None
     target["device_id"] = new_device_id
     target["password"] = password
     target["is_active"] = True
+    target["relogin_attempts"] = 0
     clear_logout_state(target)
     save_tokens(tokens)
 
     logger.info("Token yenilendi: @%s", username)
     return {"ok": True, "message": f"@{username} icin token basariyla yenilendi"}
+
+
+def fetch_group_threads_with_failover(token_record=None):
+    max_retries = 3
+    retry_count = 0
+    tried_usernames = set()
+    
+    if token_record is None:
+        token_record = get_working_active_token()
+
+    while retry_count < max_retries:
+        if not token_record or not token_record.get("token"):
+            return {"ok": False, "error": "Aktif token bulunamadi"}
+
+        current_username = token_record.get("username", "bilinmeyen")
+        from app_core.instagram_api import fetch_group_threads
+        result = fetch_group_threads(token_record)
+
+        if result.get("ok"):
+            return result
+
+        error_msg = str(result.get("error", ""))
+        is_auth_error = any(code in error_msg for code in ["HTTP 400", "HTTP 401", "HTTP 403"])
+        
+        if is_auth_error:
+            logger.info("Direct Inbox (@%s) Auth Hatası aldı. Self-healing baslatiliyor...", current_username)
+            healed = handle_invalid_token(current_username, f"Inbox Auth Hatasi: {error_msg}")
+            if healed:
+                refreshed_tokens = load_tokens()
+                refreshed_record = next((t for t in refreshed_tokens if t.get("username") == current_username), None)
+                if refreshed_record and refreshed_record.get("is_active", False):
+                    token_record = refreshed_record
+                    _last_validation_times[current_username] = datetime.now().timestamp()
+                    retry_count += 1
+                    continue
+        else:
+            break
+
+        retry_count += 1
+        tried_usernames.add(current_username)
+        token_record = get_working_active_token(tried_usernames)
+        if not token_record:
+            break
+
+    return result
+
+
+def fetch_group_members_with_failover(thread_id, token_record=None):
+    max_retries = 3
+    retry_count = 0
+    tried_usernames = set()
+    
+    if token_record is None:
+        token_record = get_working_active_token()
+
+    while retry_count < max_retries:
+        if not token_record or not token_record.get("token"):
+            return {"ok": False, "error": "Aktif token bulunamadi"}
+
+        current_username = token_record.get("username", "bilinmeyen")
+        from app_core.instagram_api import fetch_group_members
+        result = fetch_group_members(token_record, thread_id)
+
+        if result.get("ok"):
+            return result
+
+        error_msg = str(result.get("error", ""))
+        is_auth_error = any(code in error_msg for code in ["HTTP 400", "HTTP 401", "HTTP 403"])
+        
+        if is_auth_error:
+            logger.info("Direct Members (@%s) Auth Hatası aldı. Self-healing baslatiliyor...", current_username)
+            healed = handle_invalid_token(current_username, f"Members Auth Hatasi: {error_msg}")
+            if healed:
+                refreshed_tokens = load_tokens()
+                refreshed_record = next((t for t in refreshed_tokens if t.get("username") == current_username), None)
+                if refreshed_record and refreshed_record.get("is_active", False):
+                    token_record = refreshed_record
+                    _last_validation_times[current_username] = datetime.now().timestamp()
+                    retry_count += 1
+                    continue
+        else:
+            break
+
+        retry_count += 1
+        tried_usernames.add(current_username)
+        token_record = get_working_active_token(tried_usernames)
+        if not token_record:
+            break
+
+    return result
+
+
+def fetch_group_media_with_failover(thread_id, target_date, token_record=None):
+    max_retries = 3
+    retry_count = 0
+    tried_usernames = set()
+    
+    if token_record is None:
+        token_record = get_working_active_token()
+
+    while retry_count < max_retries:
+        if not token_record or not token_record.get("token"):
+            return {"ok": False, "error": "Aktif token bulunamadi"}
+
+        current_username = token_record.get("username", "bilinmeyen")
+        from app_core.instagram_api import fetch_group_media
+        result = fetch_group_media(token_record, thread_id, target_date)
+
+        if result.get("ok"):
+            return result
+
+        error_msg = str(result.get("error", ""))
+        is_auth_error = any(code in error_msg for code in ["HTTP 400", "HTTP 401", "HTTP 403"])
+        
+        if is_auth_error:
+            logger.info("Direct Media (@%s) Auth Hatası aldı. Self-healing baslatiliyor...", current_username)
+            healed = handle_invalid_token(current_username, f"Media Auth Hatasi: {error_msg}")
+            if healed:
+                refreshed_tokens = load_tokens()
+                refreshed_record = next((t for t in refreshed_tokens if t.get("username") == current_username), None)
+                if refreshed_record and refreshed_record.get("is_active", False):
+                    token_record = refreshed_record
+                    _last_validation_times[current_username] = datetime.now().timestamp()
+                    retry_count += 1
+                    continue
+        else:
+            break
+
+        retry_count += 1
+        tried_usernames.add(current_username)
+        token_record = get_working_active_token(tried_usernames)
+        if not token_record:
+            break
+
+    return result

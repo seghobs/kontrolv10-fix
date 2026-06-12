@@ -13,6 +13,29 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}?v={{ range(1, 99999) | random }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}?v={{ range(1, 99999) | random }}">
     <meta id="design-settings-meta" content="{{ design_settings | tojson | forceescape }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script>
+        const originalFetch = window.fetch;
+        window.fetch = function(input, init) {
+            if (init && init.method && init.method.toUpperCase() === 'POST') {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) {
+                    const csrfToken = meta.getAttribute('content');
+                    init.headers = init.headers || {};
+                    if (init.headers instanceof Headers) {
+                        init.headers.set('X-CSRFToken', csrfToken);
+                    } else if (Array.isArray(init.headers)) {
+                        const idx = init.headers.findIndex(([k]) => k.toLowerCase() === 'x-csrftoken');
+                        if (idx !== -1) init.headers[idx][1] = csrfToken;
+                        else init.headers.push(['X-CSRFToken', csrfToken]);
+                    } else {
+                        init.headers['X-CSRFToken'] = csrfToken;
+                    }
+                }
+            }
+            return originalFetch(input, init);
+        };
+    </script>
 </head>
 <body>
     <div class="container">
@@ -241,7 +264,7 @@
             </div>
             <div id="designSettingsBody" class="section-body collapsed" onclick="event.stopPropagation()">
                 <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 14px;">
-                    <i class="fas fa-info-circle"></i> Bu ayarlar tarayıcınızda kaydedilir ve anında tüm sayfalarda aktif olur.
+                    <i class="fas fa-info-circle"></i> Bu ayarlar veritabanında kaydedilir ve anında tüm sayfalarda aktif olur.
                 </p>
 
                 <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
@@ -254,12 +277,52 @@
                     </label>
                 </div>
                 
-                <div style="display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
                     <label style="color:rgba(255,255,255,0.8); font-size:14px; flex-grow: 1; cursor: pointer;" for="swipeNavToggle">
                         <i class="fas fa-exchange-alt me-2" style="color: var(--accent-caramel);"></i> Kaydırarak Sayfa Değiştirme (Swipe Nav)
                     </label>
                     <label class="toggle-switch">
                         <input type="checkbox" id="swipeNavToggle" checked onchange="toggleSwipeNav(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+                    <label style="color:rgba(255,255,255,0.8); font-size:14px; flex-grow: 1; cursor: pointer;" for="glassmorphismToggle">
+                        <i class="fas fa-square me-2" style="color: var(--accent-caramel);"></i> Buzlu Cam Efekti (Glassmorphism)
+                    </label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="glassmorphismToggle" checked onchange="toggleGlassmorphism(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+                    <label style="color:rgba(255,255,255,0.8); font-size:14px; flex-grow: 1; cursor: pointer;" for="ambientGlowToggle">
+                        <i class="fas fa-sun me-2" style="color: var(--accent-caramel);"></i> Arka Plan Işıkları (Ambient Glow)
+                    </label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="ambientGlowToggle" checked onchange="toggleAmbientGlow(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+                    <label style="color:rgba(255,255,255,0.8); font-size:14px; flex-grow: 1; cursor: pointer;" for="animationsToggle">
+                        <i class="fas fa-running me-2" style="color: var(--accent-caramel);"></i> Görsel Animasyonlar
+                    </label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="animationsToggle" checked onchange="toggleAnimations(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+                    <label style="color:rgba(255,255,255,0.8); font-size:14px; flex-grow: 1; cursor: pointer;" for="oledModeToggle">
+                        <i class="fas fa-moon me-2" style="color: var(--accent-caramel);"></i> OLED Saf Siyah Modu
+                    </label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="oledModeToggle" onchange="toggleOledMode(this.checked)">
                         <span class="slider"></span>
                     </label>
                 </div>

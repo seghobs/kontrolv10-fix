@@ -17,6 +17,29 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v={{ range(1, 99999) | random }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}?v={{ range(1, 99999) | random }}">
     <meta id="design-settings-meta" content="{{ design_settings | tojson | forceescape }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script>
+        const originalFetch = window.fetch;
+        window.fetch = function(input, init) {
+            if (init && init.method && init.method.toUpperCase() === 'POST') {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) {
+                    const csrfToken = meta.getAttribute('content');
+                    init.headers = init.headers || {};
+                    if (init.headers instanceof Headers) {
+                        init.headers.set('X-CSRFToken', csrfToken);
+                    } else if (Array.isArray(init.headers)) {
+                        const idx = init.headers.findIndex(([k]) => k.toLowerCase() === 'x-csrftoken');
+                        if (idx !== -1) init.headers[idx][1] = csrfToken;
+                        else init.headers.push(['X-CSRFToken', csrfToken]);
+                    } else {
+                        init.headers['X-CSRFToken'] = csrfToken;
+                    }
+                }
+            }
+            return originalFetch(input, init);
+        };
+    </script>
 </head>
 <body {% if token_error_message %}data-token-error-message="{{ token_error_message|e }}"{% endif %}>
     <div class="container">
@@ -25,6 +48,7 @@
                 <div class="form-card">
                     <h2 class="text-center" style="margin-bottom: 20px;"><i class="fas fa-comments me-2"></i>Yorum Kontrolleri</h2>
                     <form id="checkForm" method="post" action="/">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="mb-3">
 
                             <div class="mode-toggle-group">

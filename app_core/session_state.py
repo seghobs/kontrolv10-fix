@@ -33,8 +33,21 @@ TRACKED_HEADERS = {
 
 def get_session(username):
     """Kullanıcının session state'ini döndürür."""
-    with _lock:
-        return dict(_store.get(username, {}))
+    try:
+        from app_core.storage import _connect
+        conn = _connect()
+        try:
+            row = conn.execute(
+                "SELECT value FROM key_value WHERE key=?",
+                (f"session_state_{username}",),
+            ).fetchone()
+            if row:
+                return json.loads(row["value"])
+        finally:
+            conn.close()
+    except Exception as error:
+        logger.warning("Session state okuma hatasi: %s", error)
+    return {}
 
 
 def update_session(username, response_headers):
@@ -43,29 +56,41 @@ def update_session(username, response_headers):
     if not username or not response_headers:
         return
 
+    state = get_session(username)
     updated = False
-    with _lock:
-        state = _store.setdefault(username, {})
-        for header_name, key in TRACKED_HEADERS.items():
-            # Hem orijinal hem kucuk harf ile dene (case-insensitive)
-            value = (
-                response_headers.get(header_name)
-                or response_headers.get(header_name.lower())
-                or response_headers.get(header_name.upper())
-            )
-            # Bazi header'larda deger "" (bos string) veya None gelir; skip et
-            if not value or str(value).strip() == "":
-                continue
-            value = str(value).strip()
-            old = state.get(key)
-            if old != value:
-                state[key] = value
-                updated = True
+
+    for header_name, key in TRACKED_HEADERS.items():
+        # Hem orijinal hem kucuk harf ile dene (case-insensitive)
+        value = (
+            response_headers.get(header_name)
+            or response_headers.get(header_name.lower())
+            or response_headers.get(header_name.upper())
+        )
+        # Bazi header'larda deger "" (bos string) veya None gelir; skip et
+        if not value or str(value).strip() == "":
+            continue
+        value = str(value).strip()
+        old = state.get(key)
+        if old != value:
+            state[key] = value
+            updated = True
 
     if updated:
         logger.debug("Session state guncellendi: @%s -> %s", username,
                      {k: v for k, v in state.items() if k != "www_claim" or len(v) < 30})
-        _save_to_db(username)
+        try:
+            from app_core.storage import _connect
+            conn = _connect()
+            try:
+                conn.execute(
+                    "INSERT OR REPLACE INTO key_value (key, value) VALUES (?, ?)",
+                    (f"session_state_{username}", json.dumps(state, ensure_ascii=False)),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception as error:
+            logger.warning("Session state kaydetme hatasi: %s", error)
 
 
 import re
@@ -235,3 +260,28 @@ def _save_to_db(username):
             conn.close()
     except Exception as error:
         logger.warning("Session state kaydetme hatasi: %s", error)
+
+
+def clear_session(username):
+    """Kullanıcının session state'ini DB ve memory'den temizler."""
+    if not username:
+        return
+    try:
+        from app_core.storage import _connect
+        conn = _connect()
+        try:
+            conn.execute(
+                "DELETE FROM key_value WHERE key=?",
+                (f"session_state_{username}",),
+            )
+            conn.commit()
+            logger.info("Session state DB'den temizlendi: @%s", username)
+        finally:
+            conn.close()
+    except Exception as error:
+        logger.warning("Session state silme hatasi: %s", error)
+
+    with _lock:
+        if username in _store:
+            del _store[username]
+

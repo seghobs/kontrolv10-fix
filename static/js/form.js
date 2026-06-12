@@ -1067,9 +1067,13 @@ window.reloginActiveToken = async function() {
     btn.disabled = true;
 
     try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         const response = await fetch('/api/relogin_active', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
         });
         const data = await response.json();
         

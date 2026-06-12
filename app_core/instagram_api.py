@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+import threading
 
 import requests
 
@@ -9,6 +10,27 @@ from app_core.config import IG_APP_ID
 logger = logging.getLogger(__name__)
 
 MAX_COMMENT_PAGES = 50
+
+_http_sessions = {}
+_session_lock = threading.Lock()
+
+def _get_http_session(username=None):
+    if not username:
+        username = "_default_"
+    with _session_lock:
+        if username not in _http_sessions:
+            _http_sessions[username] = requests.Session()
+        return _http_sessions[username]
+
+
+def clear_http_session(username=None):
+    if not username:
+        username = "_default_"
+    with _session_lock:
+        if username in _http_sessions:
+            del _http_sessions[username]
+            logger.info("HTTP session registry cleared for: @%s", username)
+
 
 
 def get_post_sender(media_id, token_record):
@@ -39,7 +61,7 @@ def get_post_sender(media_id, token_record):
     
     # Önce /media/{id}/info/ dene
     try:
-        response = requests.get(
+        response = _get_http_session(username).get(
             f"https://i.instagram.com/api/v1/media/{media_id}/info/",
             headers=headers,
             timeout=10,
@@ -51,12 +73,12 @@ def get_post_sender(media_id, token_record):
             if items:
                 user = items[0].get("user", {})
                 return user.get("username", "")
-    except:
-        pass
+    except Exception as e:
+        logger.warning("get_post_sender info hatası: %s", e)
     
     # Alternatif: /media/infos/ endpoint
     try:
-        response = requests.get(
+        response = _get_http_session(username).get(
             f"https://i.instagram.com/api/v1/media/infos/",
             params={"media_ids": f"[{media_id}]"},
             headers=headers,
@@ -69,12 +91,12 @@ def get_post_sender(media_id, token_record):
             if items:
                 user = items[0].get("user", {})
                 return user.get("username", "")
-    except:
-        pass
+    except Exception as e:
+        logger.warning("get_post_sender infos hatası: %s", e)
     
     # Son çare: Yorumlardan post sahibini bul
     try:
-        response = requests.get(
+        response = _get_http_session(username).get(
             f"https://i.instagram.com/api/v1/media/{media_id}/comments/",
             params={"can_support_threading": "true"},
             headers=headers,
@@ -88,8 +110,8 @@ def get_post_sender(media_id, token_record):
                 # İlk yorum genelde post sahibindir
                 user = comments[0].get("user", {})
                 return user.get("username", "")
-    except:
-        pass
+    except Exception as e:
+        logger.warning("get_post_sender comments hatası: %s", e)
     
     logger.warning("Post gönderici bulunamadı: %s", media_id)
     return None
@@ -136,6 +158,16 @@ def _update_session_from_response(username, response):
     if not username or not response:
         return
     try:
+        if response.status_code in [400, 401, 403]:
+            logger.info("Session state ve HTTP session temizleniyor (HTTP %d): @%s", response.status_code, username)
+            clear_http_session(username)
+            try:
+                from app_core.session_state import clear_session
+                clear_session(username)
+            except Exception as e:
+                logger.warning("clear_session hatasi: %s", e)
+            return
+
         from app_core.session_state import update_session, update_session_from_body
         # 1) HTTP response header'lari
         update_session(username, response.headers)
@@ -146,8 +178,8 @@ def _update_session_from_response(username, response):
                 update_session_from_body(username, body)
         except Exception:
             pass  # JSON degilse veya parse hatasi varsa sessizce gec
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("_update_session_from_response hatası: %s", e)
 
 
 
@@ -156,14 +188,15 @@ def _get_username(token_record):
     return token_record.get("username", "") if token_record else ""
 
 
-def fetch_current_user(token, user_agent, android_id, device_id, timeout=5):
-    headers = build_auth_headers(token, user_agent, android_id, device_id)
-    response = requests.get(
+def fetch_current_user(token, user_agent, android_id, device_id, username=None, timeout=5):
+    headers = build_auth_headers(token, user_agent, android_id, device_id, username=username)
+    response = _get_http_session(username).get(
         "https://i.instagram.com/api/v1/accounts/current_user/?edit=true",
         headers=headers,
         timeout=timeout,
     )
     return response
+
 
 
 def validate_token(token_record):
@@ -221,7 +254,7 @@ def fetch_comment_usernames(media_id, token_record, min_id=None, progress_callba
         page_count += 1
 
         try:
-            response = requests.get(
+            response = _get_http_session(username).get(
                 f"https://i.instagram.com/api/v1/media/{media_id}/stream_comments/",
                 params=params,
                 headers=headers,
@@ -296,7 +329,7 @@ def fetch_liker_usernames(media_id, token_record, progress_callback=None):
 
     usernames = set()
     try:
-        response = requests.get(
+        response = _get_http_session(username).get(
             f"https://i.instagram.com/api/v1/media/{media_id}/likers/",
             headers=headers,
             timeout=15,
@@ -345,7 +378,7 @@ def fetch_group_threads(token_record):
     })
     
     try:
-        response = requests.get(
+        response = _get_http_session(username).get(
             "https://i.instagram.com/api/v1/direct_v2/inbox/",
             headers=headers,
             timeout=15,
@@ -407,7 +440,7 @@ def fetch_group_members(token_record, thread_id):
     })
     
     try:
-        response = requests.get(
+        response = _get_http_session(username).get(
             f"https://i.instagram.com/api/v1/direct_v2/threads/{thread_id}/",
             headers=headers,
             timeout=15,
@@ -490,7 +523,7 @@ def fetch_group_media(token_record, thread_id, target_date=None):
         # Ekstra: Gruptaki kullanicilari onceden alalim ki, post atani isimle eslestirebilelim
         thread_users_map = {}
         try:
-            t_resp = requests.get(
+            t_resp = _get_http_session(username).get(
                 f"https://i.instagram.com/api/v1/direct_v2/threads/{thread_id}/",
                 headers=headers,
                 timeout=10,
@@ -505,7 +538,7 @@ def fetch_group_media(token_record, thread_id, target_date=None):
         except Exception:
             pass
 
-        response = requests.get(
+        response = _get_http_session(username).get(
             f"https://i.instagram.com/api/v1/direct_v2/threads/{thread_id}/media/",
             params={
                 "max_timestamp": max_ts,
@@ -615,7 +648,8 @@ def fetch_own_thread_items(token_record, thread_id, limit=20):
     }
 
     try:
-        resp = requests.get(
+        username = _get_username(token_record)
+        resp = _get_http_session(username).get(
             f"https://i.instagram.com/api/v1/direct_v2/threads/{thread_id}/",
             headers=headers,
             params={"limit": limit},
@@ -666,7 +700,8 @@ def delete_thread_item(token_record, thread_id, item_id):
     }
 
     try:
-        resp = requests.post(
+        username = _get_username(token_record)
+        resp = _get_http_session(username).post(
             f"https://i.instagram.com/api/v1/direct_v2/threads/{thread_id}/items/{item_id}/delete/",
             headers=headers,
             timeout=10,

@@ -8,9 +8,17 @@ from flask import Blueprint, jsonify, render_template, request
 from donustur import donustur
 from log_in import giris_yap, LoginError
 
-from app_core.instagram_api import fetch_group_members, fetch_group_threads, fetch_group_media, get_post_sender
+from app_core.instagram_api import get_post_sender
 from app_core.storage import load_exemptions, save_exemptions, load_global_exemptions, add_audit_log
-from app_core.token_service import fetch_comments_with_failover, fetch_likers_with_failover, get_working_active_token, upsert_login_token
+from app_core.token_service import (
+    fetch_comments_with_failover,
+    fetch_likers_with_failover,
+    get_working_active_token,
+    upsert_login_token,
+    fetch_group_threads_with_failover,
+    fetch_group_members_with_failover,
+    fetch_group_media_with_failover
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,21 +27,13 @@ main_bp = Blueprint("main", __name__)
 
 @main_bp.route("/api/get_groups", methods=["GET"])
 def get_groups():
-    token = get_working_active_token()
-    if not token:
-        return jsonify({"ok": False, "error": "Aktif token bulunamadi"})
-    
-    result = fetch_group_threads(token)
+    result = fetch_group_threads_with_failover()
     return jsonify(result)
 
 
 @main_bp.route("/api/get_group_members/<thread_id>", methods=["GET"])
 def get_group_members(thread_id):
-    token = get_working_active_token()
-    if not token:
-        return jsonify({"ok": False, "error": "Aktif token bulunamadi"})
-    
-    result = fetch_group_members(token, thread_id)
+    result = fetch_group_members_with_failover(thread_id)
     return jsonify(result)
 
 
@@ -51,11 +51,7 @@ def get_group_posts(thread_id):
     else:
         target_date = now
     
-    token = get_working_active_token()
-    if not token:
-        return jsonify({"ok": False, "error": "Aktif token bulunamadi"})
-    
-    result = fetch_group_media(token, thread_id, target_date)
+    result = fetch_group_media_with_failover(thread_id, target_date)
     return jsonify(result)
 
 
@@ -367,3 +363,6 @@ def relogin_active():
         "ok": result.get("ok", False),
         "message": result.get("message", "Bilinmeyen hata")
     })
+
+
+

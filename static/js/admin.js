@@ -24,16 +24,122 @@ function showAlert(message, type = "success") {
     }, 5000);
 }
 
+function slideDown(el) {
+    if (!el) return;
+    el.classList.remove("collapsed");
+    el.style.maxHeight = "0px";
+    el.style.opacity = "0";
+    void el.offsetHeight; // force reflow
+    el.style.maxHeight = el.scrollHeight + "px";
+    el.style.opacity = "1";
+    
+    const onTransitionEnd = (e) => {
+        if (e.propertyName === "max-height") {
+            el.style.maxHeight = "none";
+            el.style.opacity = "";
+            el.removeEventListener("transitionend", onTransitionEnd);
+        }
+    };
+    el.addEventListener("transitionend", onTransitionEnd);
+}
+
+function slideUp(el) {
+    if (!el) return;
+    el.style.maxHeight = el.scrollHeight + "px";
+    el.style.opacity = "1";
+    void el.offsetHeight; // force reflow
+    el.style.maxHeight = "0px";
+    el.style.opacity = "0";
+    
+    const onTransitionEnd = (e) => {
+        if (e.propertyName === "max-height") {
+            el.classList.add("collapsed");
+            el.style.maxHeight = "";
+            el.style.opacity = "";
+            el.removeEventListener("transitionend", onTransitionEnd);
+        }
+    };
+    el.addEventListener("transitionend", onTransitionEnd);
+}
+
+function closeAllPanels(exceptId) {
+    const panels = [
+        { id: "addTokenBody", headerId: "addTokenHeader", close: () => {
+            const body = document.getElementById("addTokenBody");
+            const header = document.getElementById("addTokenHeader");
+            if (body && !body.classList.contains("collapsed")) {
+                slideUp(body);
+                if (header) header.classList.remove("open");
+            }
+        }},
+        { id: "tokensListBody", headerId: "tokensListHeader", close: () => {
+            const body = document.getElementById("tokensListBody");
+            const header = document.getElementById("tokensListHeader");
+            if (body && !body.classList.contains("collapsed")) {
+                slideUp(body);
+                if (header) header.classList.remove("open");
+            }
+        }},
+        { id: "exemptionsSectionBody", headerId: "exemptionsHeader", close: () => {
+            const body = document.getElementById("exemptionsSectionBody");
+            const header = document.getElementById("exemptionsHeader");
+            if (body && !body.classList.contains("collapsed")) {
+                slideUp(body);
+                if (header) header.classList.remove("open");
+            }
+        }},
+        { id: "globalExemptionBody", headerId: "globalExemptionHeader", close: () => {
+            const body = document.getElementById("globalExemptionBody");
+            const chevron = document.getElementById("globalExemptionChevron");
+            if (body && !body.classList.contains("collapsed")) {
+                slideUp(body);
+                if (chevron) chevron.classList.remove("rotated");
+            }
+        }},
+        { id: "automationBody", headerId: "automationHeader", close: () => {
+            const body = document.getElementById("automationBody");
+            const chevron = document.getElementById("automationChevron");
+            if (body && !body.classList.contains("collapsed")) {
+                slideUp(body);
+                if (chevron) chevron.classList.remove("rotated");
+            }
+        }},
+        { id: "auditBody", headerId: "auditHeader", close: () => {
+            const body = document.getElementById("auditBody");
+            const header = document.getElementById("auditHeader");
+            if (body && !body.classList.contains("collapsed")) {
+                slideUp(body);
+                if (header) header.classList.remove("open");
+            }
+        }},
+        { id: "designSettingsBody", headerId: "designSettingsHeader", close: () => {
+            const body = document.getElementById("designSettingsBody");
+            const chevron = document.getElementById("designSettingsChevron");
+            if (body && !body.classList.contains("collapsed")) {
+                slideUp(body);
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+            }
+        }}
+    ];
+
+    panels.forEach(panel => {
+        if (panel.id !== exceptId) {
+            panel.close();
+        }
+    });
+}
+
 function toggleAddTokenPanel() {
     const body = document.getElementById("addTokenBody");
     const header = document.getElementById("addTokenHeader");
     const isCollapsed = body.classList.contains("collapsed");
 
     if (isCollapsed) {
-        body.classList.remove("collapsed");
+        closeAllPanels("addTokenBody");
+        slideDown(body);
         header.classList.add("open");
     } else {
-        body.classList.add("collapsed");
+        slideUp(body);
         header.classList.remove("open");
     }
 }
@@ -44,14 +150,15 @@ function toggleTokensListPanel() {
     const isCollapsed = body.classList.contains("collapsed");
 
     if (isCollapsed) {
-        body.classList.remove("collapsed");
+        closeAllPanels("tokensListBody");
+        slideDown(body);
         header.classList.add("open");
         if (!body.dataset.loaded) {
             loadTokens();
             body.dataset.loaded = "true";
         }
     } else {
-        body.classList.add("collapsed");
+        slideUp(body);
         header.classList.remove("open");
     }
 }
@@ -132,14 +239,15 @@ function toggleExemptionsPanel() {
     const isCollapsed = body.classList.contains("collapsed");
 
     if (isCollapsed) {
-        body.classList.remove("collapsed");
+        closeAllPanels("exemptionsSectionBody");
+        slideDown(body);
         header.classList.add("open");
         if (!body.dataset.loaded) {
             loadExemptions();
             body.dataset.loaded = "true";
         }
     } else {
-        body.classList.add("collapsed");
+        slideUp(body);
         header.classList.remove("open");
     }
 }
@@ -147,18 +255,18 @@ function toggleExemptionsPanel() {
 function toggleAuditPanel() {
     const body = document.getElementById("auditBody");
     const header = document.getElementById("auditHeader");
-    const chevron = document.getElementById("auditChevron");
     if (!body || !header) return;
     const isCollapsed = body.classList.contains("collapsed");
     if (isCollapsed) {
-        body.classList.remove("collapsed");
+        closeAllPanels("auditBody");
+        slideDown(body);
         header.classList.add("open");
         if (!body.dataset.loaded) {
             loadAuditLogs();
             body.dataset.loaded = "true";
         }
     } else {
-        body.classList.add("collapsed");
+        slideUp(body);
         header.classList.remove("open");
     }
 }
@@ -354,10 +462,16 @@ function toggleGlobalExemptionPanel() {
     const header = document.getElementById("globalExemptionHeader");
     const chevron = document.getElementById("globalExemptionChevron");
     if (!body || !header || !chevron) return;
-    body.classList.toggle("collapsed");
-    chevron.classList.toggle("rotated");
-    if (!body.classList.contains("collapsed")) {
+    
+    const isCollapsed = body.classList.contains("collapsed");
+    if (isCollapsed) {
+        closeAllPanels("globalExemptionBody");
+        slideDown(body);
+        chevron.classList.add("rotated");
         loadGlobalExemptions();
+    } else {
+        slideUp(body);
+        chevron.classList.remove("rotated");
     }
 }
 
@@ -605,6 +719,22 @@ function createTokenCard(token) {
     editBtn.innerHTML = '<i class="fas fa-edit"></i> Duzenle';
     editBtn.addEventListener("click", () => editToken(token.username));
     actionsDiv.appendChild(editBtn);
+
+    const exportBtn = document.createElement("button");
+    exportBtn.className = "btn";
+    exportBtn.innerHTML = '<i class="fas fa-download"></i> Dışarı Aktar';
+    exportBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(token, null, 4));
+        const dlAnchorElem = document.createElement('a');
+        dlAnchorElem.setAttribute("href", dataStr);
+        dlAnchorElem.setAttribute("download", `${token.username}_token.json`);
+        document.body.appendChild(dlAnchorElem);
+        dlAnchorElem.click();
+        dlAnchorElem.remove();
+        showAlert(`@${token.username} için token başarıyla dışarı aktarıldı.`, "success");
+    });
+    actionsDiv.appendChild(exportBtn);
 
     const reloginBtn = document.createElement("button");
     reloginBtn.className = "btn";
@@ -1180,11 +1310,17 @@ function toggleAutomationPanel() {
     const body = document.getElementById('automationBody');
     const chevron = document.getElementById('automationChevron');
     if (!body || !chevron) return;
-    body.classList.toggle('collapsed');
-    chevron.classList.toggle('rotated');
-    if (!body.classList.contains('collapsed')) {
+    
+    const isCollapsed = body.classList.contains('collapsed');
+    if (isCollapsed) {
+        closeAllPanels("automationBody");
+        slideDown(body);
+        chevron.classList.add('rotated');
         fetchGlobalAutomationStatus();
         fetchGlobalAutomationSettings();
+    } else {
+        slideUp(body);
+        chevron.classList.remove('rotated');
     }
 }
 
@@ -1439,38 +1575,91 @@ window.handleImportJson = handleImportJson;
 function toggleDesignSettingsPanel() {
     const body = document.getElementById('designSettingsBody');
     const chevron = document.getElementById('designSettingsChevron');
-    body.classList.toggle('collapsed');
-    chevron.style.transform = body.classList.contains('collapsed') ? 'rotate(0deg)' : 'rotate(180deg)';
+    const isCollapsed = body.classList.contains('collapsed');
+    if (isCollapsed) {
+        closeAllPanels("designSettingsBody");
+        slideDown(body);
+        chevron.style.transform = 'rotate(180deg)';
+    } else {
+        slideUp(body);
+        chevron.style.transform = 'rotate(0deg)';
+    }
 }
 
 function saveGlobalDesignSettings() {
     const liquidGlass = document.getElementById('liquidGlassToggle').checked;
     const swipeNav = document.getElementById('swipeNavToggle').checked;
+    const glassmorphism = document.getElementById('glassmorphismToggle').checked;
+    const ambientGlow = document.getElementById('ambientGlowToggle').checked;
+    const animations = document.getElementById('animationsToggle').checked;
+    const oledMode = document.getElementById('oledModeToggle').checked;
+    
+    const settings = {
+        liquid_glass: liquidGlass,
+        swipe_nav: swipeNav,
+        glassmorphism: glassmorphism,
+        ambient_glow: ambientGlow,
+        animations: animations,
+        oled_mode: oledMode
+    };
+    
+    window.GLOBAL_DESIGN_SETTINGS = settings;
     
     fetch('/admin/set_design_settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            liquid_glass: liquidGlass,
-            swipe_nav: swipeNav
-        })
+        body: JSON.stringify(settings)
     }).catch(err => console.error("Design Settings save error:", err));
 }
 
 function toggleLiquidGlass(enabled) {
-    if (window.applyLiquidGlassSetting) {
-        window.applyLiquidGlassSetting(enabled);
+    if (window.applyDesignSettings) {
+        window.GLOBAL_DESIGN_SETTINGS.liquid_glass = enabled;
+        window.applyDesignSettings(window.GLOBAL_DESIGN_SETTINGS);
     }
     saveGlobalDesignSettings();
 }
 
 function toggleSwipeNav(enabled) {
     window.isSwipeNavDisabled = !enabled;
+    window.GLOBAL_DESIGN_SETTINGS.swipe_nav = enabled;
+    saveGlobalDesignSettings();
+}
+
+function toggleGlassmorphism(enabled) {
+    if (window.applyDesignSettings) {
+        window.GLOBAL_DESIGN_SETTINGS.glassmorphism = enabled;
+        window.applyDesignSettings(window.GLOBAL_DESIGN_SETTINGS);
+    }
+    saveGlobalDesignSettings();
+}
+
+function toggleAmbientGlow(enabled) {
+    if (window.applyDesignSettings) {
+        window.GLOBAL_DESIGN_SETTINGS.ambient_glow = enabled;
+        window.applyDesignSettings(window.GLOBAL_DESIGN_SETTINGS);
+    }
+    saveGlobalDesignSettings();
+}
+
+function toggleAnimations(enabled) {
+    if (window.applyDesignSettings) {
+        window.GLOBAL_DESIGN_SETTINGS.animations = enabled;
+        window.applyDesignSettings(window.GLOBAL_DESIGN_SETTINGS);
+    }
+    saveGlobalDesignSettings();
+}
+
+function toggleOledMode(enabled) {
+    if (window.applyDesignSettings) {
+        window.GLOBAL_DESIGN_SETTINGS.oled_mode = enabled;
+        window.applyDesignSettings(window.GLOBAL_DESIGN_SETTINGS);
+    }
     saveGlobalDesignSettings();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    let settings = { liquid_glass: true, swipe_nav: true };
+    let settings = { liquid_glass: true, swipe_nav: true, glassmorphism: true, ambient_glow: true, animations: true, oled_mode: false };
     const metaTag = document.getElementById('design-settings-meta');
     if (metaTag) {
         try { settings = JSON.parse(metaTag.content); } catch (e) {}
@@ -1482,5 +1671,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const swipeToggle = document.getElementById('swipeNavToggle');
     if (swipeToggle) swipeToggle.checked = settings.swipe_nav !== false;
+
+    const glassmorphismToggle = document.getElementById('glassmorphismToggle');
+    if (glassmorphismToggle) glassmorphismToggle.checked = settings.glassmorphism !== false;
+
+    const ambientGlowToggle = document.getElementById('ambientGlowToggle');
+    if (ambientGlowToggle) ambientGlowToggle.checked = settings.ambient_glow !== false;
+
+    const animationsToggle = document.getElementById('animationsToggle');
+    if (animationsToggle) animationsToggle.checked = settings.animations !== false;
+
+    const oledModeToggle = document.getElementById('oledModeToggle');
+    if (oledModeToggle) oledModeToggle.checked = settings.oled_mode === true;
 });
 

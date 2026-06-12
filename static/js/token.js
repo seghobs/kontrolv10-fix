@@ -32,7 +32,14 @@ document.getElementById("loginForm").addEventListener("submit", async (event) =>
         formData.append("user_agent", userAgent);
         formData.append("device_id", deviceId);
 
-        const response = await fetch("/giris_yaps", { method: "POST", body: formData });
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const response = await fetch("/giris_yaps", {
+            method: "POST",
+            body: formData,
+            headers: {
+                "X-CSRFToken": csrfToken
+            }
+        });
         const data = await response.json();
 
         loadingMessage.style.display = "none";
